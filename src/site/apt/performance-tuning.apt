@@ -1,0 +1,93 @@
+~~
+~~ Copyright 2012 Steven Swor.
+~~
+~~ Licensed under the Apache License, Version 2.0 (the "License");
+~~ you may not use this file except in compliance with the License.
+~~ You may obtain a copy of the License at
+~~
+~~      http://www.apache.org/licenses/LICENSE-2.0
+~~
+~~ Unless required by applicable law or agreed to in writing, software
+~~ distributed under the License is distributed on an "AS IS" BASIS,
+~~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+~~ See the License for the specific language governing permissions and
+~~ limitations under the License.
+~~
+-------------------------------------------------------------------------------
+                           Performance Tuning
+ -------------------------------------------------------------------------------
+                              Steven Swor
+ -------------------------------------------------------------------------------
+                              2012-12-21
+ -------------------------------------------------------------------------------
+
+Performance Tuning
+
+    This solution attempts to find a happy medium between memory consumption,
+logic freshness, application responsiveness, and file system I/O.  However,
+performance will largely depend on how the application is used, and the settings
+might need to be adjusted to ensure optimum performance.
+
+* Tuning Memory Usage
+
+    There are a lot of ways to configure memory management in Ehcache.  So
+many, in fact, that it's probably better just to look at
+{{{http://ehcache.org/documentation/configuration/cache-size} Ehcache's
+documentation on cache sizing}} than mention them here.
+
+    It's important to choose the right settings for cache memory usage. If the
+cache is too small, then items will be evicted often, which can negatively
+affect performance by increasing disk I/O as items must be loaded from the file
+system more frequently (calls to <<<SelfPopulatingCache.get()>>> will block
+while the item is being loaded from the file system).  If the cache is too
+large, then there will be less heap space available to the rest of the
+application, and performance could be negatively affected due to more
+frequent/thorough garbage collection (or worse, your application could start
+throwing <<<OutOfMemoryError>>>s).
+
+* Tuning I/O
+
+    Periodically polling the file system introduces some amount of disk I/O
+at regular intervals.  Our solution attempts to minimise the impact by only
+polling directories containing files for which we have valid cache entries.  I/O
+performance can be tuned by changing the polling intervals for the file system
+monitor and the cache expiration monitor, as well as carefully choosing where on
+the file system to place scripts.
+
+    Suggestions for tuning I/O:
+
+    * Choose a file system polling interval based on how "fresh" you want the
+logic to be.  A short polling interval introduces unnecessary I/O,
+especially when the files don't change very often.  Too long a polling interval,
+and your users might be using stale logic, or they might have to wait a while
+after a script is updated before using a particular feature.
+
+    * Choose a cache expiration timeout (<<<timeToIdleSeconds>>>) based on
+user demand for cached logic.  Too short a timeout, and you will see a
+performance impact on frequently-accessed application functions, since the
+application must constantly wait for the logic to be loaded from the file
+system.  A long timeout increases the amount of unnecessary I/O due to
+file system polling for scripts which are no longer being used by the
+application.
+
+    * Choose a cache expiration polling interval based on what you consider to
+be an acceptable amount of unnecessary file system polling.  A longer polling
+interval increases the amount of unnecessary I/O for objects which are used
+infrequently, as they are more likely to expire.  A shorter polling interval
+can increase the amount of time it takes to retrieve a valid entry from the
+cache due to shared resource contention (Ehcache tries to minimise this as
+much as it can, but the impact is still there, however small it might be).
+
+    * Consider the deployment environment when deciding where to place script
+files.  Locally-attached storage tends to have better read performance than
+network-attached storage.  Some file systems can be very slow to list a
+directory's contents if there are lots of files in the directory (this is
+noticeably slow in SMB shares with several thousand files in them - not uncommon
+in enterprise environments).  Should every script be placed in the same
+directory, or would you see a performance boost by splitting them up into
+different directories?  If so, how should they be split up to maximise I/O
+performance?  These questions can only be correctly answered by evaluating how
+the application is deployed and how it is being used; they do not have
+one-size-fits-all answers.
+
+    []

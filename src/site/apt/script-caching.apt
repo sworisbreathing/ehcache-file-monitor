@@ -1,0 +1,396 @@
+~~
+~~ Copyright 2012 Steven Swor.
+~~
+~~ Licensed under the Apache License, Version 2.0 (the "License");
+~~ you may not use this file except in compliance with the License.
+~~ You may obtain a copy of the License at
+~~
+~~      http://www.apache.org/licenses/LICENSE-2.0
+~~
+~~ Unless required by applicable law or agreed to in writing, software
+~~ distributed under the License is distributed on an "AS IS" BASIS,
+~~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+~~ See the License for the specific language governing permissions and
+~~ limitations under the License.
+~~
+ -------------------------------------------------------------------------------
+                           Tutorial - Script Caching
+ -------------------------------------------------------------------------------
+                               Steven Swor
+ -------------------------------------------------------------------------------
+                               2012-12-20
+ -------------------------------------------------------------------------------
+
+Script Caching Example
+
+    This example is based on how script caching is configured in the application
+for which it was originally developed.
+
+* Ehcache Configuration
+
+    Ehcache is configured via an <<<ehcache.xml>>> in the root of the classpath.
+In a Jetty deployment environment, this file is located in
+<<<$JETTY_HOME/resources>>>.
+
++------------------------------------------------------------------------------+
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Don't check for new ehcache versions.
+    Limit the cache size to 30% of the JVM's heap size.
+-->
+<ehcache updateCheck="false"
+         maxBytesLocalHeap="30%"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="ehcache.xsd">
+    <!--
+      Objects expire if they haven't been requested in 10 minutes.
+    -->
+    <cache name="GroovyScripts" timeToIdleSeconds="600">
+        <!--
+          Don't persist the cache across JVM restarts.
+        -->
+        <persistence strategy="none" />
+    </cache>
+</ehcache>
++------------------------------------------------------------------------------+
+
+* Limiting SizeOf Calculations
+
+    In this example, we have limited the size of our cache based on the amount
+of memory consumed (as opposed to limiting it based on the number of objects in
+the cache).  Ehcache's algorithm for calculating memory usage traverses the
+object graph for each item in the cache.  This can result in a performance
+penalty if the object graph is very large (Ehcache actually warns you when this
+happens).
+
+    To limit the scope of the SizeOf algorithm, we can configure ehcache to
+filter out Groovy's internal classes, since these tend to result in very large
+object graphs.  We put this in a file named <<<ehcachesizeof.filter>>> in the
+root of the class path (i.e. <<<$JETTY_HOME/resources>>>):
+
++------------------------------------------------------------------------------+
+# This file defines the package, class, and field names which should be ignored
+# by Ehcache when it tries to calculate the size of elements in the cache.
+#
+# Ehcache doesn't like big object graphs because it causes a performance penalty
+# when computing the memory footprint for an object.  With this file, we can
+# limit how far Ehcache will traverse an object graph when computing the size
+# of a cached object.
+#
+# NOTE: package declarations in this file are not hierarchical.  In other words,
+# specifying package foo.bar in this file will ignore class foo.bar.Baz but not
+# class foo.bar.xxx.Baz
+#
+# See http://ehcache.org/documentation/configuration/cache-size
+
+# Ignore Groovy's internal classes
+org.codehaus.groovy
+groovy.lang
++------------------------------------------------------------------------------+
+
+* GroovyObjectFileLoadingCacheEntryFactory
+
+    The <<<GroovyObjectFileLoadingCacheEntryFactory>>> is responsible for
+loading Groovy scripts on the class path and instantiating objects defined in
+those scripts.
+
++------------------------------------------------------------------------------+
+public class GroovyObjectFileLoadingCacheEntryFactory extends FileLoadingCacheEntryFactory {
+
+    @Override
+    protected Object loadObjectFromFile(File file) throws Exception {
+        Class clazz = loadClassFromFile(file);
+        return clazz.newInstance();
+    }
+
+    protected Class loadClassFromFile(final File file) throws Exception {
+      //...
+    }
+}
++------------------------------------------------------------------------------+
+
+* Application Initialisation
+
+    Our application has a few tasks which must be performed once, and only once,
+when it first launches:
+
+  * {{{Configure_Ehcache_SizeOf_Filtering}Configure Ehcache SizeOf Filtering}}
+
+  * {{{Decorate_The_Groovy_Script_Cache}Decorate the Groovy script cache with a <<<SelfPopulatingCache>>>}}
+
+  * {{{File_Monitoring}Start a timer to monitor the file system}}
+
+  * {{{Register_A_FileMonitoringEventListener}Register a <<<FileMonitoringCacheEventListener>>> with the cache}}
+
+  * {{{Eagerly_Evicting_Expired_Items}Start a timer to eagerly evict expired elements from the cache}}
+
+  []
+
+
+** Configure Ehcache SizeOf Filtering
+
+    {{{Limiting SizeOf Calculations}As previously mentioned}}, we want to limit
+the scope of Ehcache's SizeOf algorithm with a filtering file.  When Ehcache
+starts up, it looks for the system property <<<net.sf.ehcache.sizeof.filter>>>,
+whose value is the path to the filtering file.  We can specify the system
+property as a JVM argument, or do it programmatically (prior to the first call
+to <<<CacheManager.getInstance()>>>):
+
++------------------------------------------------------------------------------+
+/*
+ * Set the name of the sizeof filter file.  This will prevent ehcache
+ * warnings about object graphs being too large when it tries to
+ * calculate the cache size.
+ */
+System.setProperty("net.sf.ehcache.sizeof.filter", "ehcachesizeof.filter");
++------------------------------------------------------------------------------+
+
+** Decorate The Groovy Script Cache
+
+    We have a cache defined in {{{Ehcache_Configuration}ehcache.xml}} from which
+we can obtain object instances loaded from Groovy scripts.  However, for all
+their fancy housekeeping algorithms, caches are merely object repositories.
+There must be some code, somewhere, which puts stuff into the cache.
+
+    We want to make our caching solution as seamless and transparent as
+possible.  The calling code shouldn't have to take any special action if items
+are not in the cache (or if the items in the cache are no longer valid).
+
+    Thankfully, Ehcache provides a solution.  <<<SelfPopulatingCache>>> follows
+the {{{http://en.wikipedia.org/wiki/Decorator_pattern}decorator pattern}},
+wrapping an underlying cache implementation.  When items are requested which
+are not in the cache (or have expired), the wrapper transparently adds a new
+entry for the item, created by a <<<CacheEntryFactory>>>.
+
+    This bit of code decorates the script cache from <<<ehcache.xml>>> with a
+<<<SelfPopulatingCache>>> which will load objects using our
+{{GroovyObjectFileLoadingCacheEntryFactory}}:
+
++------------------------------------------------------------------------------+
+/*
+ * Replace the groovy script cache defined in ehcache.xml with one that
+ * will lazy-load objects from their script files.
+ */
+CacheManager defaultCacheManager = CacheManager.getInstance();
+Ehcache scriptCache = defaultCacheManager.getEhcache("GroovyScripts");
+SelfPopulatingCache selfPopulatingScriptCache = new SelfPopulatingCache(scriptCache, new GroovyObjectFileLoadingCacheEntryFactory());
+defaultCacheManager.replaceCacheWithDecoratedCache(scriptCache, selfPopulatingScriptCache);
++------------------------------------------------------------------------------+
+
+** File Monitoring
+
+    Caching scripts reduces disk I/O by only reading from the file system when
+there isn't a valid entry in the cache.  When someone edits the script with
+updated business logic, we know the new logic should <eventually> be loaded
+into the application.  The <<<timeToIdleSeconds>>> setting in
+{{{Ehcache_Configuration}ehcache.xml}} ensures that scripts will expire after
+they have sat in the cache for 10 minutes without being requested.  But how can
+we ensure that the new logic will be loaded if our users are constantly
+performing tasks which request scripts from the cache?
+
+    To ensure the "freshness" of the business logic in a constant-demand
+scenario (where a consistent influx of user requests prevents cache entries from
+expiring), we can use a file monitoring solution which removes an entry from the
+cache when it detects a change to the associated script file.
+
++------------------------------------------------------------------------------+
+/*
+ * Start the file monitor, which will detect changes to our scripts.
+ *
+ * Note: the file monitor is basically just a glorified timer thread.
+ * The FileMonitoringCacheEventListener tells it what directories to
+ * poll and which files in those directories we are interested in.
+ */
+fileMonitor = new FileAlterationMonitor(FILE_POLLING_INTERVAL_MILLIS);
+fileMonitor.setThreadFactory(new ThreadFactory() {
+    @Override
+    public Thread newThread(Runnable r) {
+        return new Thread(r, "Script Files Monitor");
+    }
+});
+fileMonitor.start();
++------------------------------------------------------------------------------+
+
+    This solution uses {{{http://commons.apache.org/io/}Commons IO}} to monitor
+the file system, which sets up a dedicated thread to poll the file system at
+a fixed interval.  Alternatively, we could have rolled our own polling solution
+or used the polling solution provided by <<<Commons VFS>>>.  If we were willing
+to constrain the deployment environment's operating system, we could have used a
+JNI wrapper for <<<FSEvents>>> (Mac OS 10.5+), <<<dnotify>>> (Linux kernel
+2.4+), or <<<inotify>>> (Linux kernel 2.6.13+).  If we were willing to constrain
+the deployment environment's JRE, we could have used Java 7's
+{{{http://docs.oracle.com/javase/tutorial/essential/io/notification.html}WatchService}}.
+
+** Register A FileMonitoringEventListener
+
+    Now that our cache is decorated and the file system monitor is up and
+running, we can bridge the two together, so that cache entries will be removed
+when changes are detected to their underlying script files.
+
++------------------------------------------------------------------------------+
+/*
+ * Add a listener which will automatically remove an object from the
+ * cache when its script file changes, and will stop monitoring for
+ * script changes when an object is removed, expired, or evicted from
+ * the cache.
+ */
+cacheListener = new FileMonitoringCacheEventListener(selfPopulatingScriptCache, fileMonitor);
+selfPopulatingScriptCache.getCacheEventNotificationService().registerListener(cacheListener);
++------------------------------------------------------------------------------+
+
+** Eagerly Evicting Expired Items
+
+    Ehcache lazily checks cache entries for expiration and notifies interested
+parties (e.g. when application code retrieves items from the cache).  This is
+generally a good idea, since most of the time, it's not a big deal to have a bit
+of stale data in the cache if nothing can access it.  However, our solution
+uses cache notification to manage file system polling.
+
+    As long as an expired item sits in the cache without the
+<<<FileMonitoringCacheEventListener>>> being made aware of its expiration, we
+will keep monitoring the file system for changes to that file.  This results in
+unnecessary I/O, since it is guaranteed that, once an item expires, the script
+will be loaded from the file system the next time it is requested from the
+cache.
+
+    To reduce the amount of unnecessary I/O, we can periodically ask Ehcache to
+evict expired items:
+
++------------------------------------------------------------------------------+
+/*
+ * By default, Ehcache waits until the next "get" call before checking
+ * for expiration.  However, as long as a file is in the cache, the file
+ * monitor will poll the file system looking for changes to that file, even
+ * if the entry has expired (i.e. the next "get" call will cause us to load
+ * the script file again).
+ *
+ * To prevent unnecessary file polling in this case, we start a timer
+ * here to periodically ask the cache to evict expired elements.
+ */
+ehcacheExpirationMonitorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+   @Override
+   public Thread newThread(Runnable r) {
+       return new Thread(r, "Ehcache Expiration Monitor");
+   }
+});
+ehcacheExpirationMonitorService.scheduleWithFixedDelay(new Runnable() {
+   @Override
+   public void run() {
+       Ehcache scriptCache = CacheManager.getInstance().getEhcache("GroovyScripts");
+       scriptCache.evictExpiredElements();
+   }
+}, 0, CACHE_EXPIRATION_MINUTES, TimeUnit.MINUTES);
++------------------------------------------------------------------------------+
+
+** Putting It All Together
+
+    Here is an example which sets everything up in a single method call.
+
++------------------------------------------------------------------------------+
+long FILE_POLLING_INTERVAL_MILLIS = //...
+long CACHE_EXPIRATION_MINUTES = //...
+
+/*
+ * This method should be called once (and only once), during application
+ * start-up.
+ */
+void startEhCacheOnApplicationLaunch() throws Exception {
+   /*
+    * Set the name of the sizeof filter file.  This will prevent ehcache
+    * warnings about object graphs being too large when it tries to
+    * calculate the cache size.
+    */
+   System.setProperty("net.sf.ehcache.sizeof.filter", "ehcachesizeof.filter");
+
+   /*
+    * Replace the groovy script cache defined in ehcache.xml with one that
+    * will lazy-load objects from their script files.
+    */
+   CacheManager defaultCacheManager = CacheManager.getInstance();
+   Ehcache scriptCache = defaultCacheManager.getEhcache("GroovyScripts");
+   SelfPopulatingCache selfPopulatingScriptCache = new SelfPopulatingCache(scriptCache, new GroovyObjectFileLoadingCacheEntryFactory());
+   defaultCacheManager.replaceCacheWithDecoratedCache(scriptCache, selfPopulatingScriptCache);
+
+   /*
+    * Start the file monitor, which will detect changes to our scripts.
+    *
+    * Note: the file monitor is basically just a glorified timer thread.
+    * The FileMonitoringCacheEventListener tells it what directories to
+    * poll and which files in those directories we are interested in.
+    */
+   fileMonitor = new FileAlterationMonitor(FILE_POLLING_INTERVAL_MILLIS);
+   fileMonitor.setThreadFactory(new ThreadFactory() {
+       @Override
+       public Thread newThread(Runnable r) {
+           return new Thread(r, "Script Files Monitor");
+       }
+   });
+   fileMonitor.start();
+
+   /*
+    * Add a listener which will automatically remove an object from the
+    * cache when its script file changes, and will stop monitoring for
+    * script changes when an object is removed, expired, or evicted from
+    * the cache.
+    */
+   cacheListener = new FileMonitoringCacheEventListener(selfPopulatingScriptCache, fileMonitor);
+   selfPopulatingScriptCache.getCacheEventNotificationService().registerListener(cacheListener);
+
+   /*
+    * By default, Ehcache waits until the next "get" call before checking
+    * for expiration.  However, as long as a file is in the cache, the file
+    * monitor will poll the file system looking for changes to that file, even
+    * if the entry has expired (i.e. the next "get" call will cause us to load
+    * the script file again).
+    *
+    * To prevent unnecessary file polling in this case, we start a timer
+    * here to periodically ask the cache to evict expired elements.
+    */
+   ehcacheExpirationMonitorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+       @Override
+       public Thread newThread(Runnable r) {
+           return new Thread(r, "Ehcache Expiration Monitor");
+       }
+   });
+   ehcacheExpirationMonitorService.scheduleWithFixedDelay(new Runnable() {
+       @Override
+       public void run() {
+           Ehcache scriptCache = CacheManager.getInstance().getEhcache("GroovyScripts");
+           scriptCache.evictExpiredElements();
+       }
+   }, 0, CACHE_EXPIRATION_MINUTES, TimeUnit.MINUTES);
+}
++------------------------------------------------------------------------------+
+
+* Application Shutdown
+
+    Since caching and file monitoring spawn background threads, we have a bit of
+housekeeping to do when the application is shut down.
+
++------------------------------------------------------------------------------+
+/*
+ * This method should be called once (and only once), during application
+ * shutdown.
+ */
+void onApplicationShutdown() {
+    /*
+     * Stop the cache expiration monitoring timer.
+     */
+    ehcacheExpirationMonitorService.shutdown();
+
+    /*
+     * Stop the file system polling timer.
+     */
+    try {
+        fileMonitor.stop();
+    } catch (Exception ex) {
+        //trap
+    }
+
+    /*
+     * Stop Ehcache background threads and allow garbage collection of caches
+     * and their contents.
+     */
+    CacheManager.getInstance().shutdown();
+}
++------------------------------------------------------------------------------+
