@@ -39,7 +39,7 @@ limitations under the License.
         </license>
     </licenses>
     
-    <url>https://github.com/sworisbreathing/ehcache-file-monitor</url>
+    <url>http://sworisbreathing.github.com/ehcache-file-monitor</url>
 
     <scm>
         <connection>scm:git:git@github.com:sworisbreathing/ehcache-file-monitor.git</connection>
