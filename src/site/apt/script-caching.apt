@@ -129,7 +129,7 @@ when it first launches:
 
 ** Configure Ehcache SizeOf Filtering
 
-    {{{Limiting SizeOf Calculations}As previously mentioned}}, we want to limit
+    {{{Limiting_SizeOf_Calculations}As previously mentioned}}, we want to limit
 the scope of Ehcache's SizeOf algorithm with a filtering file.  When Ehcache
 starts up, it looks for the system property <<<net.sf.ehcache.sizeof.filter>>>,
 whose value is the path to the filtering file.  We can specify the system
