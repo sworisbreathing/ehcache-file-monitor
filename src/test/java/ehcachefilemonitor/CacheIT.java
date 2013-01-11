@@ -17,6 +17,8 @@ package ehcachefilemonitor;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,29 +45,21 @@ import sfmf4j.jpathwatch.WatchServiceFileMonitorServiceImpl;
 
 /**
  * Integration tests.
+ *
  * @author sswor
  */
 public class CacheIT {
 
     private static final Logger testLogger = LoggerFactory.getLogger(CacheIT.class);
-
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
-
     private CacheManager cacheManager;
-
     private Ehcache cache = null;
-
     private SelfPopulatingCache selfPopulatingCache = null;
-
     private FileMonitorService fileAlterationMonitor = null;
-
     private FileMonitoringCacheEventListener instance = null;
-
     private ExecutorService fileMonitorExecutorService = null;
-
     private WatchService watchService = null;
-
     private BlockingQueue<File> callbackFiles = null;
 
     @Before
@@ -77,15 +71,13 @@ public class CacheIT {
         cacheManager = CacheManager.create(configuration);
         cache = cacheManager.getEhcache(CacheIT.class.getName());
         selfPopulatingCache = new SelfPopulatingCache(cache, new FileLoadingCacheEntryFactory() {
-
             @Override
             protected Object loadObjectFromFile(File file) throws Exception {
                 return file;
             }
         });
         cacheManager.replaceCacheWithDecoratedCache(cache, selfPopulatingCache);
-        fileMonitorExecutorService = Executors.newSingleThreadExecutor(new ThreadFactory(){
-
+        fileMonitorExecutorService = Executors.newSingleThreadExecutor(new ThreadFactory() {
             @Override
             public Thread newThread(Runnable r) {
                 return new Thread(r, "File Monitor");
@@ -96,7 +88,6 @@ public class CacheIT {
         fileAlterationMonitor.initialize();
         instance = new FileMonitoringCacheEventListener(selfPopulatingCache, fileAlterationMonitor);
         instance.addMonitoredFileListener(new MonitoredFileListener() {
-
             @Override
             public void startedMonitoringFile(File file) {
                 callbackFiles.add(file);
@@ -133,12 +124,39 @@ public class CacheIT {
         }
     }
 
-    @Test(timeout=10000)
+    @Test(timeout = 10000)
     public void testLazyLoading() throws Exception {
         testLogger.info("Testing lazy-loading file monitor through ehcache.");
         assertEquals(0, selfPopulatingCache.getKeys().size());
         final File folder = tempFolder.getRoot();
         assertFalse(fileAlterationMonitor.isMonitoringDirectory(folder));
+        File created = verifyFileCreateBehaviour(folder, 1);
+        verifyFileModifyBehaviour(created, folder, 0);
+        verifyFileDeleteBehaviour(created, folder, 0);
+    }
+
+    @Test(timeout = 10000)
+    public void testLazyLoadingWithMultipleFiles() throws Exception {
+        testLogger.info("Testing lazy-loading file monitor through ehcache with multiple files.");
+        assertEquals(0, selfPopulatingCache.getKeys().size());
+        final File folder = tempFolder.getRoot();
+        assertFalse(fileAlterationMonitor.isMonitoringDirectory(folder));
+        List<File> files = new LinkedList<File>();
+        File last = null;
+        for (int i=0;i<10;i++) {
+            last = verifyFileCreateBehaviour(folder, 1+i);
+            files.add(last);
+        }
+        for (File file : files) {
+            verifyFileModifyBehaviour(file, folder, files.size()-1);
+        }
+        int count = files.size();
+        for (File file : files) {
+            verifyFileDeleteBehaviour(file, folder, --count);
+        }
+    }
+
+    private File verifyFileCreateBehaviour(final File folder, final int count) throws Exception {
         final File created = tempFolder.newFile();
         testLogger.debug("File: {}", created);
         /*
@@ -147,9 +165,13 @@ public class CacheIT {
         selfPopulatingCache.get(created);
         File added = callbackFiles.take();
         assertEquals(created.getAbsolutePath(), added.getAbsolutePath());
-        assertEquals(1, selfPopulatingCache.getKeys().size());
+        assertEquals(count, selfPopulatingCache.getKeys().size());
         assertTrue(fileAlterationMonitor.isMonitoringDirectory(folder));
-        if (created.canWrite()) {
+        return created;
+    }
+
+    private void verifyFileModifyBehaviour(final File file, final File folder, final int filesStillBeingMonitored) throws Exception {
+        if (file.canWrite()) {
             testLogger.info("Testing automatic cache removal on file modification.");
             byte[] bytes = new byte[4096];
             FileOutputStream fileOut = null;
@@ -182,38 +204,41 @@ public class CacheIT {
                  * things in mind when designing a solution around file change
                  * events.
                  */
-                fileOut = new FileOutputStream(created, true);
+                fileOut = new FileOutputStream(file, true);
                 fileOut.write(bytes);
                 testLogger.trace("data written");
-            }finally {
+            } finally {
                 if (fileOut != null) {
                     testLogger.trace("Closing file stream.");
                     try {
                         fileOut.close();
-                    }catch(Exception ex) {
+                    } catch (Exception ex) {
                         //trap
                     }
                 }
             }
             File removed = callbackFiles.take();
-            assertEquals(created.getAbsolutePath(), removed.getAbsolutePath());
-            assertEquals(0, selfPopulatingCache.getKeys().size());
-            assertFalse(fileAlterationMonitor.isMonitoringDirectory(folder));
+            assertEquals(file.getAbsolutePath(), removed.getAbsolutePath());
+            assertEquals(filesStillBeingMonitored, selfPopulatingCache.getKeys().size());
+            assertEquals(filesStillBeingMonitored > 0, fileAlterationMonitor.isMonitoringDirectory(folder));
             testLogger.info("Automatically removed on modification.  Ensuring it is cached again prior to deleting.");
-            selfPopulatingCache.get(created);
-            added = callbackFiles.take();
-        assertEquals(created.getAbsolutePath(), added.getAbsolutePath());
-            assertEquals(1, selfPopulatingCache.getKeys().size());
+            selfPopulatingCache.get(file);
+            File added = callbackFiles.take();
+            assertEquals(file.getAbsolutePath(), added.getAbsolutePath());
+            assertEquals(1+filesStillBeingMonitored, selfPopulatingCache.getKeys().size());
             assertTrue(fileAlterationMonitor.isMonitoringDirectory(folder));
         } else {
             testLogger.info("Cannot write the file.  Will not test automatic removal.");
         }
+    }
+
+    private void verifyFileDeleteBehaviour(final File file, final File folder, final int filesStillBeingMonitored) throws Exception {
         testLogger.trace("Deleting");
-        created.delete();
+        file.delete();
         testLogger.info("Checking for cache removal after deletion.");
         File removed = callbackFiles.take();
-        assertEquals(created.getAbsolutePath(), removed.getAbsolutePath());
-        assertEquals(0, selfPopulatingCache.getKeys().size());
-        assertFalse(fileAlterationMonitor.isMonitoringDirectory(folder));
+        assertEquals(file.getAbsolutePath(), removed.getAbsolutePath());
+        assertEquals(filesStillBeingMonitored, selfPopulatingCache.getKeys().size());
+        assertEquals(filesStillBeingMonitored>0, fileAlterationMonitor.isMonitoringDirectory(folder));
     }
 }
