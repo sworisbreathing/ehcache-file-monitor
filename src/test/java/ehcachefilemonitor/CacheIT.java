@@ -17,9 +17,10 @@ package ehcachefilemonitor;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import name.pachler.nio.file.FileSystems;
 import name.pachler.nio.file.WatchService;
@@ -61,14 +62,15 @@ public class CacheIT {
 
     private FileMonitoringCacheEventListener instance = null;
 
-    private volatile Semaphore semaphore = null;
-
     private ExecutorService fileMonitorExecutorService = null;
 
     private WatchService watchService = null;
 
+    private BlockingQueue<File> callbackFiles = null;
+
     @Before
     public void setUp() throws Exception {
+        callbackFiles = new LinkedBlockingQueue<File>();
         Configuration configuration = new Configuration();
         CacheConfiguration cacheConfiguration = new CacheConfiguration(CacheIT.class.getName(), 1000).eternal(false).persistence(new PersistenceConfiguration().strategy(PersistenceConfiguration.Strategy.NONE));
         configuration.addCache(cacheConfiguration);
@@ -82,7 +84,6 @@ public class CacheIT {
             }
         });
         cacheManager.replaceCacheWithDecoratedCache(cache, selfPopulatingCache);
-        semaphore = new Semaphore(0);
         fileMonitorExecutorService = Executors.newSingleThreadExecutor(new ThreadFactory(){
 
             @Override
@@ -98,12 +99,12 @@ public class CacheIT {
 
             @Override
             public void startedMonitoringFile(File file) {
-                semaphore.release();
+                callbackFiles.add(file);
             }
 
             @Override
             public void stoppedMonitoringFile(File file) {
-                semaphore.release();
+                callbackFiles.add(file);
             }
         });
         selfPopulatingCache.getCacheEventNotificationService().registerListener(instance);
@@ -144,7 +145,8 @@ public class CacheIT {
          * Lazy-load the file.
          */
         selfPopulatingCache.get(created);
-        semaphore.acquire();
+        File added = callbackFiles.take();
+        assertEquals(created.getAbsolutePath(), added.getAbsolutePath());
         assertEquals(1, selfPopulatingCache.getKeys().size());
         assertTrue(fileAlterationMonitor.isMonitoringDirectory(folder));
         if (created.canWrite()) {
@@ -193,12 +195,14 @@ public class CacheIT {
                     }
                 }
             }
-            semaphore.acquire();
+            File removed = callbackFiles.take();
+            assertEquals(created.getAbsolutePath(), removed.getAbsolutePath());
             assertEquals(0, selfPopulatingCache.getKeys().size());
             assertFalse(fileAlterationMonitor.isMonitoringDirectory(folder));
             testLogger.info("Automatically removed on modification.  Ensuring it is cached again prior to deleting.");
             selfPopulatingCache.get(created);
-            semaphore.acquire();
+            added = callbackFiles.take();
+        assertEquals(created.getAbsolutePath(), added.getAbsolutePath());
             assertEquals(1, selfPopulatingCache.getKeys().size());
             assertTrue(fileAlterationMonitor.isMonitoringDirectory(folder));
         } else {
@@ -206,8 +210,9 @@ public class CacheIT {
         }
         testLogger.trace("Deleting");
         created.delete();
-        semaphore.acquire();
         testLogger.info("Checking for cache removal after deletion.");
+        File removed = callbackFiles.take();
+        assertEquals(created.getAbsolutePath(), removed.getAbsolutePath());
         assertEquals(0, selfPopulatingCache.getKeys().size());
         assertFalse(fileAlterationMonitor.isMonitoringDirectory(folder));
     }
