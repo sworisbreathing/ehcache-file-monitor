@@ -38,7 +38,7 @@ limitations under the License.
             <comments>A business-friendly OSS license</comments>
         </license>
     </licenses>
-    
+
     <url>http://sworisbreathing.github.com/ehcache-file-monitor</url>
 
     <scm>
@@ -53,6 +53,7 @@ limitations under the License.
         <powermock.version>1.5</powermock.version>
         <netbeans.hint.license>apache20</netbeans.hint.license>
         <github.global.server>github</github.global.server>
+        <sfmf4j.version>1.0-SNAPSHOT</sfmf4j.version>
     </properties>
 
     <dependencies>
@@ -67,9 +68,15 @@ limitations under the License.
             <version>2.6.2</version>
         </dependency>
         <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.4</version>
+            <groupId>sfmf4j</groupId>
+            <artifactId>sfmf4j-api</artifactId>
+            <version>${sfmf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>sfmf4j</groupId>
+            <artifactId>sfmf4j-jpathwatch</artifactId>
+            <version>${sfmf4j.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.powermock</groupId>

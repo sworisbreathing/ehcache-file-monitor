@@ -23,4 +23,5 @@ appender("STDOUT", ConsoleAppender) {
   }
 }
 root(INFO, ["STDOUT"])
+logger("sfmf4j",TRACE)
 logger("ehcachefilemonitor", TRACE)

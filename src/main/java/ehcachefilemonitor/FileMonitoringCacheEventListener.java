@@ -16,6 +16,9 @@
 package ehcachefilemonitor;
 
 import java.io.File;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -24,12 +27,11 @@ import net.sf.ehcache.CacheException;
 import net.sf.ehcache.Ehcache;
 import net.sf.ehcache.Element;
 import net.sf.ehcache.event.CacheEventListener;
-import org.apache.commons.io.monitor.FileAlterationListener;
-import org.apache.commons.io.monitor.FileAlterationListenerAdaptor;
-import org.apache.commons.io.monitor.FileAlterationMonitor;
-import org.apache.commons.io.monitor.FileAlterationObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sfmf4j.api.DirectoryListener;
+import sfmf4j.api.DirectoryListenerAdapter;
+import sfmf4j.api.FileMonitorService;
 
 /**
  * A cache listener which monitors files for changes as long as they are in the
@@ -52,11 +54,8 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
     /**
      * The file monitor service.
      */
-    private final FileAlterationMonitor fileAlterationMonitor;
-    /**
-     * File alteration observers.
-     */
-    private final ConcurrentMap<File, FileAlterationObserver> folderObservers;
+    private final FileMonitorService fileAlterationMonitor;
+
     /**
      * Disposal flag, used to prevent new file observers from being added when
      * the cache is shutting down. This is initially set to {@code false} and is
@@ -68,18 +67,22 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
 
     private final List<MonitoredFileListener> monitoredFileListeners;
 
+    private final ConcurrentMap<File, Collection<File>> monitoredFilesByFolder;
+    private final ConcurrentMap<File, DirectoryListener> directoryListenersByFolder;
+
     /**
      * Creates a new FileMonitoringCacheEventListener.
      *
      * @param cache the cache to manage
      * @param fileAlterationMonitor service for monitoring file changes
      */
-    public FileMonitoringCacheEventListener(final Ehcache cache, final FileAlterationMonitor fileAlterationMonitor) {
+    public FileMonitoringCacheEventListener(final Ehcache cache, final FileMonitorService fileAlterationMonitor) {
         this.cache = cache;
         this.fileAlterationMonitor = fileAlterationMonitor;
         this.disposed = false;
-        folderObservers = new ConcurrentHashMap<File, FileAlterationObserver>();
         monitoredFileListeners = new CopyOnWriteArrayList<MonitoredFileListener>();
+        monitoredFilesByFolder = new ConcurrentHashMap<File, Collection<File>>();
+        directoryListenersByFolder = new ConcurrentHashMap<File, DirectoryListener>();
     }
 
     public void addMonitoredFileListener(final MonitoredFileListener listener) {
@@ -181,7 +184,7 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
      * monitoring.
      */
     @Override
-    public void dispose() {
+    public synchronized void dispose() {
         logger.trace("dispose()");
         disposed = true;
         stopMonitoringAll();
@@ -190,9 +193,15 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
     /**
      * Stops all file monitoring.
      */
-    private void stopMonitoringAll() {
-        for (File file : folderObservers.keySet()) {
-            stopMonitoringFile(file);
+    private synchronized void stopMonitoringAll() {
+        Collection<File> folders = new LinkedList<File>(monitoredFilesByFolder.keySet());
+        for (File folder : folders) {
+            Collection<File> files = new LinkedList<File>(monitoredFilesByFolder.remove(folder));
+            if (files != null) {
+                for (File file : files) {
+                    stopMonitoringFile(file);
+                }
+            }
         }
     }
 
@@ -204,74 +213,42 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
      * @param key the file
      */
     void startMonitoringFile(final Object key) {
-        if (key instanceof File) {
-            final File file = (File) key;
+        if (!disposed && key instanceof File) {
+            final File file = (File)key;
             final File folder = getDirectory(file);
-            final FileAlterationObserver observer;
-            boolean shouldAdd = false;
-            FileAlterationObserver newObserver = new FileAlterationObserver(folder, new FileFilterChain());
-            if (!disposed) {
-                FileAlterationObserver oldObserver = folderObservers.putIfAbsent(folder, newObserver);
-                if (oldObserver == null) {
-                    try {
-                        newObserver.initialize();
-                        shouldAdd = true;
-                        /*
-                         * Add a listener for the file.
-                         */
-                        final FileAlterationListener fileListener = new FileAlterationListenerAdaptor() {
-
-                            @Override
-                            public void onFileChange(final File f) {
-                                logger.trace("onFileChange({})", f);
-                                cache.remove(f);
-                            }
-
-                            @Override
-                            public void onFileDelete(final File f) {
-                                logger.trace("onFileDelete({})", f);
-                                cache.remove(f);
-                            }
-                        };
-                        newObserver.addListener(fileListener);
-                    } catch (Exception ex) {
-                        logger.warn("Failed to initialize observer for folder: {}", folder.getAbsolutePath());
-                    }
-                    observer = newObserver;
-                } else {
-                    /*
-                     * We already have an observer.  Use it instead.
-                     */
-                    observer = oldObserver;
-                    try {
-                        /*
-                         * Ensure the one we didn't add can be garbage
-                         * collected.
-                         */
-                        newObserver.destroy();
-                    } catch (Exception ex) {
-                        //trap.
-                    }
+            final String parentFolderPath = folder.getAbsolutePath();
+            synchronized(this){
+                Collection<File> monitoredFiles = monitoredFilesByFolder.get(folder);
+                if (monitoredFiles==null) {
+                    monitoredFiles = Collections.newSetFromMap(new ConcurrentHashMap<File, Boolean>());
+                    monitoredFilesByFolder.put(folder, monitoredFiles);
                 }
-                observer.addListener(new FileAlterationListenerAdaptor(){
-
-                    @Override
-                    public void onStart(FileAlterationObserver observer) {
-                        logger.debug("Started monitoring file: {}", file);
-                        notifyStartMonitoring(file);
-                        observer.removeListener(this);
-                    }
-                });
+                monitoredFiles.add(file);
                 /*
-                 * Ensure the file is monitored.
+                 * Register a directory listener with the file monitor service.
                  */
-                synchronized(observer) {
-                    ((FileFilterChain)observer.getFileFilter()).getFiles().add(file);
-                    if (shouldAdd) {
-                        fileAlterationMonitor.addObserver(observer);
-                    }
+                DirectoryListener listener = directoryListenersByFolder.get(folder);
+                if (listener == null) {
+                    listener = new DirectoryListenerAdapter(){
+
+                        @Override
+                        public void fileChanged(File changed) {
+                            logger.trace("fileChanged({})", changed);
+                            cache.remove(changed);
+                        }
+
+                        @Override
+                        public void fileDeleted(File deleted) {
+                            logger.trace("fileDeleted({})", deleted);
+                            cache.remove(deleted);
+                        }
+                    };
+                    directoryListenersByFolder.put(folder, listener);
+                    fileAlterationMonitor.registerDirectoryListener(folder, listener);
                 }
             }
+            logger.debug("Started monitoring file: {}", file);
+            notifyStartMonitoring(file);
         }
     }
 
@@ -285,18 +262,16 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
         if (key instanceof File) {
             final File file = (File) key;
             final File parentFolder = getDirectory(file);
-            final FileAlterationObserver observer = folderObservers.get(parentFolder);
-            if (observer != null) {
-                synchronized(observer) {
-                    FileFilterChain filterChain = (FileFilterChain) observer.getFileFilter();
-                    filterChain.getFiles().remove(file);
-                    if (filterChain.getFiles().isEmpty()) {
-                        fileAlterationMonitor.removeObserver(observer);
-                        folderObservers.remove(parentFolder);
-                        try {
-                            observer.destroy();
-                        }catch(Exception ex) {
-                            // trap.
+            synchronized(this) {
+                Collection<File> monitoredFiles = monitoredFilesByFolder.get(parentFolder);
+                if (monitoredFiles!=null) {
+                    monitoredFiles.remove(file);
+                    if (monitoredFiles.isEmpty()) {
+                        logger.debug("No more files to monitor in folder {}", parentFolder);
+                        monitoredFilesByFolder.remove(parentFolder);
+                        DirectoryListener listener = directoryListenersByFolder.remove(parentFolder);
+                        if (listener != null) {
+                            fileAlterationMonitor.unregisterDirectoryListener(parentFolder, listener);
                         }
                     }
                 }

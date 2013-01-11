@@ -17,23 +17,28 @@ package ehcachefilemonitor;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
+import name.pachler.nio.file.FileSystems;
+import name.pachler.nio.file.WatchService;
 import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.Ehcache;
 import net.sf.ehcache.config.CacheConfiguration;
 import net.sf.ehcache.config.Configuration;
 import net.sf.ehcache.config.PersistenceConfiguration;
 import net.sf.ehcache.constructs.blocking.SelfPopulatingCache;
-import org.apache.commons.io.monitor.FileAlterationMonitor;
 import org.junit.After;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sfmf4j.api.FileMonitorService;
+import sfmf4j.jpathwatch.WatchServiceFileMonitorServiceImpl;
 
 /**
  * Integration tests.
@@ -52,11 +57,15 @@ public class CacheIT {
 
     private SelfPopulatingCache selfPopulatingCache = null;
 
-    private FileAlterationMonitor fileAlterationMonitor = null;
+    private FileMonitorService fileAlterationMonitor = null;
 
     private FileMonitoringCacheEventListener instance = null;
 
     private volatile Semaphore semaphore = null;
+
+    private ExecutorService fileMonitorExecutorService = null;
+
+    private WatchService watchService = null;
 
     @Before
     public void setUp() throws Exception {
@@ -74,15 +83,16 @@ public class CacheIT {
         });
         cacheManager.replaceCacheWithDecoratedCache(cache, selfPopulatingCache);
         semaphore = new Semaphore(0);
-        fileAlterationMonitor = new FileAlterationMonitor(250);
-        fileAlterationMonitor.setThreadFactory(new ThreadFactory(){
+        fileMonitorExecutorService = Executors.newSingleThreadExecutor(new ThreadFactory(){
 
             @Override
             public Thread newThread(Runnable r) {
                 return new Thread(r, "File Monitor");
             }
         });
-        fileAlterationMonitor.start();
+        watchService = FileSystems.getDefault().newWatchService();
+        fileAlterationMonitor = new WatchServiceFileMonitorServiceImpl(watchService, fileMonitorExecutorService);
+        fileAlterationMonitor.initialize();
         instance = new FileMonitoringCacheEventListener(selfPopulatingCache, fileAlterationMonitor);
         instance.addMonitoredFileListener(new MonitoredFileListener() {
 
@@ -104,12 +114,16 @@ public class CacheIT {
         selfPopulatingCache.getCacheEventNotificationService().unregisterListener(instance);
         instance.dispose();
         instance = null;
+        fileAlterationMonitor.shutdown();
+        fileAlterationMonitor = null;
+        fileMonitorExecutorService.shutdownNow();
+        fileMonitorExecutorService = null;
         try {
-            fileAlterationMonitor.stop();
+            watchService.close();
         } catch (Exception ex) {
             //trap
         }
-        fileAlterationMonitor = null;
+        watchService = null;
         selfPopulatingCache = null;
         cache = null;
         if (cacheManager != null) {
@@ -122,6 +136,8 @@ public class CacheIT {
     public void testLazyLoading() throws Exception {
         testLogger.info("Testing lazy-loading file monitor through ehcache.");
         assertEquals(0, selfPopulatingCache.getKeys().size());
+        final File folder = tempFolder.getRoot();
+        assertFalse(fileAlterationMonitor.isMonitoringDirectory(folder));
         final File created = tempFolder.newFile();
         testLogger.debug("File: {}", created);
         /*
@@ -130,6 +146,7 @@ public class CacheIT {
         selfPopulatingCache.get(created);
         semaphore.acquire();
         assertEquals(1, selfPopulatingCache.getKeys().size());
+        assertTrue(fileAlterationMonitor.isMonitoringDirectory(folder));
         if (created.canWrite()) {
             testLogger.info("Testing automatic cache removal on file modification.");
             byte[] bytes = new byte[4096];
@@ -178,10 +195,12 @@ public class CacheIT {
             }
             semaphore.acquire();
             assertEquals(0, selfPopulatingCache.getKeys().size());
+            assertFalse(fileAlterationMonitor.isMonitoringDirectory(folder));
             testLogger.info("Automatically removed on modification.  Ensuring it is cached again prior to deleting.");
             selfPopulatingCache.get(created);
             semaphore.acquire();
             assertEquals(1, selfPopulatingCache.getKeys().size());
+            assertTrue(fileAlterationMonitor.isMonitoringDirectory(folder));
         } else {
             testLogger.info("Cannot write the file.  Will not test automatic removal.");
         }
@@ -190,5 +209,6 @@ public class CacheIT {
         semaphore.acquire();
         testLogger.info("Checking for cache removal after deletion.");
         assertEquals(0, selfPopulatingCache.getKeys().size());
+        assertFalse(fileAlterationMonitor.isMonitoringDirectory(folder));
     }
 }
