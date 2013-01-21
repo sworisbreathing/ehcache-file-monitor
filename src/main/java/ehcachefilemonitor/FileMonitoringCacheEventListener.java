@@ -216,39 +216,43 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
         if (!disposed && key instanceof File) {
             final File file = (File)key;
             final File folder = getDirectory(file);
-            final String parentFolderPath = folder.getAbsolutePath();
+            boolean added;
             synchronized(this){
                 Collection<File> monitoredFiles = monitoredFilesByFolder.get(folder);
                 if (monitoredFiles==null) {
                     monitoredFiles = Collections.newSetFromMap(new ConcurrentHashMap<File, Boolean>());
                     monitoredFilesByFolder.put(folder, monitoredFiles);
                 }
-                monitoredFiles.add(file);
-                /*
-                 * Register a directory listener with the file monitor service.
-                 */
-                DirectoryListener listener = directoryListenersByFolder.get(folder);
-                if (listener == null) {
-                    listener = new DirectoryListenerAdapter(){
+                added = monitoredFiles.add(file);
+                if (added) {
+                    /*
+                     * Register a directory listener with the file monitor service.
+                     */
+                    DirectoryListener listener = directoryListenersByFolder.get(folder);
+                    if (listener == null) {
+                        listener = new DirectoryListenerAdapter(){
 
-                        @Override
-                        public void fileChanged(File changed) {
-                            logger.trace("fileChanged({})", changed);
-                            cache.remove(changed);
-                        }
+                            @Override
+                            public void fileChanged(File changed) {
+                                logger.trace("fileChanged({})", changed);
+                                cache.remove(changed);
+                            }
 
-                        @Override
-                        public void fileDeleted(File deleted) {
-                            logger.trace("fileDeleted({})", deleted);
-                            cache.remove(deleted);
-                        }
-                    };
-                    directoryListenersByFolder.put(folder, listener);
-                    fileAlterationMonitor.registerDirectoryListener(folder, listener);
+                            @Override
+                            public void fileDeleted(File deleted) {
+                                logger.trace("fileDeleted({})", deleted);
+                                cache.remove(deleted);
+                            }
+                        };
+                        directoryListenersByFolder.put(folder, listener);
+                        fileAlterationMonitor.registerDirectoryListener(folder, listener);
+                    }
                 }
             }
-            logger.debug("Started monitoring file: {}", file);
-            notifyStartMonitoring(file);
+            if (added) {
+                logger.info("Started monitoring file: {}", file);
+                notifyStartMonitoring(file);
+            }
         }
     }
 
@@ -262,10 +266,11 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
         if (key instanceof File) {
             final File file = (File) key;
             final File parentFolder = getDirectory(file);
-            synchronized(this) {
+            boolean removed = false;
+            synchronized (this) {
                 Collection<File> monitoredFiles = monitoredFilesByFolder.get(parentFolder);
-                if (monitoredFiles!=null) {
-                    monitoredFiles.remove(file);
+                if (monitoredFiles != null) {
+                    removed = monitoredFiles.remove(file);
                     if (monitoredFiles.isEmpty()) {
                         logger.debug("No more files to monitor in folder {}", parentFolder);
                         monitoredFilesByFolder.remove(parentFolder);
@@ -276,8 +281,10 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
                     }
                 }
             }
-            logger.debug("Stopped monitoring file: {}", file);
-            notifyStopMonitoring(file);
+            if (removed) {
+                logger.info("Stopped monitoring file {}", file);
+                notifyStopMonitoring(file);
+            }
         }
     }
 
