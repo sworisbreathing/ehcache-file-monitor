@@ -74,12 +74,6 @@ limitations under the License.
             <version>${sfmf4j.version}</version>
         </dependency>
         <dependency>
-            <groupId>sfmf4j</groupId>
-            <artifactId>sfmf4j-jpathwatch</artifactId>
-            <version>${sfmf4j.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.powermock</groupId>
             <artifactId>powermock-module-junit4-rule-agent</artifactId>
             <version>${powermock.version}</version>
@@ -164,6 +158,55 @@ limitations under the License.
         </plugins>
     </build>
     <profiles>
+
+        <!--
+            Test against NIO2 on JDK7 or later.  Otherwise, use jpathwatch.
+        -->
+        <profile>
+            <id>nio2-not-present</id>
+            <activation>
+                <jdk>[,1.7)</jdk>
+            </activation>
+            <dependencies>
+                 <!--
+                    sfmf4j-jpathwatch has a transitive dependency on jpathwatch 0.95,
+                    which is not available in Maven Central.  In order to run the tests
+                    against sfmf4j-jpathwatch, you will need to manually
+
+                    jpathwatch is available at http://jpathwatch.wordpress.com/download/
+                    and is licensed under the GPLv2 with a linking exception
+                    (commonly referred to as the "Classpath" exception).
+
+                    Once you've downloaded jpathwatch and extracted the jar from the
+                    zip file, you can install it into your local repository using
+                    the following command:
+
+mvn install:install-file -Dfile=<path-to-jpathwatch.jar> -DgroupId=jpathwatch
+-DartifactId=jpathwatch -Dversion=0.95 -Dpackaging=jar
+                -->
+                <dependency>
+                    <groupId>sfmf4j</groupId>
+                    <artifactId>sfmf4j-jpathwatch</artifactId>
+                    <version>${sfmf4j.version}</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>has-nio2</id>
+            <activation>
+                <jdk>[1.7,)</jdk>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>sfmf4j</groupId>
+                    <artifactId>sfmf4j-nio2</artifactId>
+                    <version>${sfmf4j.version}</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
         <profile>
             <id>it-coverage</id>
             <build>
