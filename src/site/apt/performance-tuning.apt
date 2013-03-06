@@ -80,25 +80,25 @@ Performance Tuning
     be an acceptable amount of unnecessary file system polling.
 
     A longer polling interval increases the amount of unnecessary I/O for
-    objects which are used infrequently, as they are more likely to expire.  A
+    resources which are used infrequently, as they are more likely to expire.  A
     shorter polling interval can increase the amount of time it takes to
     retrieve a valid entry from the cache due to shared resource contention
     (Ehcache tries to minimize this as much as it can, but the impact is still
     there, however small it might be).
 
-    * Consider the deployment environment when deciding where to place script
+    * Consider the deployment environment when deciding where to place resource
     files.
 
     Locally-attached storage tends to have better read performance than
     network-attached storage, and many of the non-polling file system monitoring
     implementations (such as <<<inotify>>>, <<<kqueue>>>, and
-    <<<ReadDirectoryChangesW>>>) aren't as reliable when monitoring network
-    shares.  Some file systems can be very slow to list a directory's contents
-    if there are lots of files in the directory (this is noticeably slow in SMB
-    shares with several thousand files in them - not uncommon in enterprise
-    environments).
+    <<<ReadDirectoryChangesW>>>) tend to be <less> reliable than their polling
+    counterparts when monitoring network shares.  Some file systems can be very
+    slow to list a directory's contents if there are lots of files in the
+    directory (this is noticeably slow in SMB shares with several thousand files
+    in them - not uncommon in enterprise environments).
 
-    Should every script be placed in the same directory, or would you see a
+    Should every resource be placed in the same directory, or would you see a
     performance boost by splitting them up into different directories?  If so,
     how should they be split up to maximize I/O performance?  These questions
     can only be correctly answered by evaluating how the application is deployed
