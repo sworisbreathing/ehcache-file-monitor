@@ -15,3 +15,10 @@ resource to be loaded from the file system again, if the underlying file hasn't
 changed.  When a file has changed, the resource which was loaded from that file
 is removed from the cache, such that it will be loaded from the updated file
 the next time it is requested.
+
+More Info
+---------
+
+For more information, visit [the project website]
+(http://sworisbreathing.github.com/ehcache-file-monitor/index.html
+"Ehcache File Monitor")

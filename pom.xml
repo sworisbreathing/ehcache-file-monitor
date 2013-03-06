@@ -32,8 +32,9 @@ limitations under the License.
     <name>Ehcache File Monitor</name>
 
     <description>
-        This project defines a mechanism for lazy-loading data from files into
-        Ehcache, with automatic removal when the files are modified or deleted.
+        Ehcache File Monitor attempts to provide a scalable, high performance
+        solution for loading resources from a file system while ensuring the
+        "freshness" of the loaded resources.
     </description>
 
     <licenses>
