@@ -106,7 +106,7 @@
                 <ul class="dropdown-menu">
                       <li>      <a href="http://www.ehcache.org/"  target="_blank" title="Ehcache">Ehcache</a>
 </li>
-      <li>      <a href="https://sworisbreathing.github.com/sfmf4j/"  target="_blank" title="SFMF4J">SFMF4J</a>
+      <li>      <a href="../sfmf4j/"  target="_blank" title="SFMF4J">SFMF4J</a>
 </li>
                   </ul>
               </li>
@@ -240,7 +240,7 @@ defaultCacheManager.replaceCacheWithDecoratedCache(scriptCache, selfPopulatingSc
  */
 fileMonitorService = loadFileMonitorServiceFactory().createFileMonitorService();
 fileMonitorService.initialize();
-</pre></div><p>Ehcache File Monitor uses <a class="externalLink" href="https://sworisbreathing.github.com/sfmf4j">SFMF4J</a> for file system monitoring. Your application must have an SFMF4J implementation on the class path in order to obtain an instance of <tt>FileMonitorServiceFactory</tt>.</p></div><div class="section"><h4>Register A FileMonitoringEventListener<a name="Register_A_FileMonitoringEventListener"></a></h4><p>Now that our cache is decorated and the file system monitor is up and running, we can bridge the two together, so that cache entries will be removed when changes are detected to their underlying script files.</p><div class="source"><pre class="prettyprint">/*
+</pre></div><p>Ehcache File Monitor uses <a class="externalLink" href="http://sworisbreathing.github.com/sfmf4j">SFMF4J</a> for file system monitoring. Your application must have an SFMF4J implementation on the class path in order to obtain an instance of <tt>FileMonitorServiceFactory</tt>.</p></div><div class="section"><h4>Register A FileMonitoringEventListener<a name="Register_A_FileMonitoringEventListener"></a></h4><p>Now that our cache is decorated and the file system monitor is up and running, we can bridge the two together, so that cache entries will be removed when changes are detected to their underlying script files.</p><div class="source"><pre class="prettyprint">/*
  * Add a listener which will automatically remove an object from the
  * cache when its script file changes, and will stop monitoring for
  * script changes when an object is removed, expired, or evicted from
@@ -248,7 +248,7 @@ fileMonitorService.initialize();
  */
 cacheListener = new FileMonitoringCacheEventListener(selfPopulatingScriptCache, fileMonitorService);
 selfPopulatingScriptCache.getCacheEventNotificationService().registerListener(cacheListener);
-</pre></div></div><div class="section"><h4>Eagerly Evicting Expired Items<a name="Eagerly_Evicting_Expired_Items"></a></h4><p>Ehcache lazily checks cache entries for expiration and notifies interested parties (e.g. when application code retrieves items from the cache). This is generally a good idea, since most of the time, it's not a big deal to have a bit of stale data in the cache if nothing can access it. However, our solution uses cache notification to manage file system notifications.</p><p>As long as an expired item sits in the cache without the <tt>FileMonitoringCacheEventListener</tt> being made aware of its expiration, we will keep monitoring the file system for changes to that file. If our file system monitoring solution uses polling, this can result in unnecessary I/O, since it is guaranteed that, once an item expires, the script will be loaded from the file system the next time it is requested from the cache.</p><p>To reduce the amount of unnecessary I/O, we can periodically ask Ehcache to evict expired items:</p><div class="source"><pre class="prettyprint">/*
+</pre></div></div><div class="section"><h4>Eagerly Evicting Expired Items<a name="Eagerly_Evicting_Expired_Items"></a></h4><p>Ehcache lazily checks cache entries for expiration and notifies interested parties (e.g. when application code retrieves items from the cache). This is generally a good idea, since most of the time, it's not a big deal to have a bit of stale data in the cache if nothing can access it. However, our solution uses cache notification to manage file system monitoring.</p><p>As long as an expired item sits in the cache without the <tt>FileMonitoringCacheEventListener</tt> being made aware of its expiration, we will keep monitoring the file system for changes to that file. If our file system monitoring solution uses polling, this can result in unnecessary I/O, since it is guaranteed that, once an item expires, the script will be loaded from the file system the next time it is requested from the cache.</p><p>To reduce the amount of unnecessary I/O, we can periodically ask Ehcache to evict expired items:</p><div class="source"><pre class="prettyprint">/*
  * By default, Ehcache waits until the next &quot;get&quot; call before checking
  * for expiration.  However, as long as a file is in the cache, the file
  * monitor could poll the file system looking for changes to that file, even
