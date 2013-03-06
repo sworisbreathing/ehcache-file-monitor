@@ -27,6 +27,6 @@ About ${project.name}
 
 Documentation Index
 
-    * {{{./resource-caching.html}Resource Caching}}
+    * {{{./resource-caching.html}Resource Caching Tutorial}}
 
     * {{{./performance-tuning.html}Performance Tuning}}

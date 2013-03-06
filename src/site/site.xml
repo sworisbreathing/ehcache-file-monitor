@@ -37,7 +37,7 @@ limitations under the License.
         </breadcrumbs>
         <menu name="Overview">
             <item name="About" href="index.html" />
-            <item name="Resource Caching" href="resource-caching.html" />
+            <item name="Resource Caching Tutorial" href="resource-caching.html" />
             <item name="Performance Tuning" href="performance-tuning.html" />
         </menu>
         <menu ref="reports" />
