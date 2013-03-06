@@ -21,9 +21,9 @@
                                2012-12-20
  -------------------------------------------------------------------------------
 
-Resource Caching Example
+Resource Caching Tutorial
 
-    This example is based on how resource caching is configured in the
+    This tutorial is based on how resource caching is configured in the
     application for which Ehcache File Monitor was originally developed.  This
     was a web application installed into a Jetty container.  Certain business
     functions were loaded from Groovy scripts stored in
