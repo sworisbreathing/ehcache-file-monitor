@@ -32,9 +32,9 @@ limitations under the License.
     <name>Ehcache File Monitor</name>
 
     <description>
-        Ehcache File Monitor attempts to provide a scalable, high performance
-        solution for loading resources from a file system while ensuring the
-        "freshness" of the loaded resources.
+        Ehcache File Monitor extends Ehcache to provide a scalable, high
+        performance solution for ensuring the "freshness" of resources
+        loaded from a file system.
     </description>
 
     <licenses>
