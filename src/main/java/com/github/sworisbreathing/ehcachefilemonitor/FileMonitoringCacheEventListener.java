@@ -99,7 +99,8 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
     }
 
     /**
-     * Adds a monitored file listener.
+     * Adds a monitored file listener.  This is intended for thread
+     * synchronization during automated tests.
      * @param listener the listener to add
      */
     void addMonitoredFileListener(final MonitoredFileListener listener) {
@@ -107,7 +108,8 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
     }
 
     /**
-     * Removes a monitored file listener.
+     * Removes a monitored file listener.  This is intended for thread
+     * synchronization during automated tests.
      * @param listener the listener to remove
      */
     void removeMonitoredFileListener(final MonitoredFileListener listener) {
@@ -336,7 +338,7 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
      * @param file the file
      * @return the file (if it is a directory) or its parent directory
      */
-    protected File getDirectory(final File file) {
+    protected static File getDirectory(final File file) {
         if (file.isDirectory()) {
             return file;
         } else {

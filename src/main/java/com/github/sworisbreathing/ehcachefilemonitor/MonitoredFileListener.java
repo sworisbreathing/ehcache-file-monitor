@@ -18,7 +18,8 @@ package com.github.sworisbreathing.ehcachefilemonitor;
 import java.io.File;
 
 /**
- * Listener interface for file system monitoring events.
+ * Listener interface for file system monitoring events.  This is intended for
+ * thread synchronization during automated tests.
  * @author sswor
  */
 interface MonitoredFileListener {
