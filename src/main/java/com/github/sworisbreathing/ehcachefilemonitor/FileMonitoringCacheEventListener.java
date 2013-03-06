@@ -47,10 +47,12 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
      * The logger.
      */
     private static final Logger logger = LoggerFactory.getLogger(FileMonitoringCacheEventListener.class);
+
     /**
      * The cache instance.
      */
     private final Ehcache cache;
+
     /**
      * The file monitor service.
      */
@@ -65,9 +67,20 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
      */
     private volatile boolean disposed;
 
+    /**
+     * Registered listeners for file monitor status events.
+     */
     private final List<MonitoredFileListener> monitoredFileListeners;
 
+    /**
+     * A map containing the files currently being monitored, grouped by their
+     * parent folders.
+     */
     private final ConcurrentMap<File, Collection<File>> monitoredFilesByFolder;
+
+    /**
+     * A map containing the SFMF4J listener for each monitored folder.
+     */
     private final ConcurrentMap<File, DirectoryListener> directoryListenersByFolder;
 
     /**
@@ -85,20 +98,36 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
         directoryListenersByFolder = new ConcurrentHashMap<File, DirectoryListener>();
     }
 
-    public void addMonitoredFileListener(final MonitoredFileListener listener) {
+    /**
+     * Adds a monitored file listener.
+     * @param listener the listener to add
+     */
+    void addMonitoredFileListener(final MonitoredFileListener listener) {
         monitoredFileListeners.add(listener);
     }
 
-    public void removeMonitoredFileListener(final MonitoredFileListener listener) {
+    /**
+     * Removes a monitored file listener.
+     * @param listener the listener to remove
+     */
+    void removeMonitoredFileListener(final MonitoredFileListener listener) {
         monitoredFileListeners.remove(listener);
     }
 
+    /**
+     * Notifies interested parties when we begin monitoring a file.
+     * @param file the file
+     */
     protected void notifyStartMonitoring(final File file) {
         for (MonitoredFileListener listener : monitoredFileListeners) {
             listener.startedMonitoringFile(file);
         }
     }
 
+    /**
+     * Notifies interested parties when we stop monitoring a file.
+     * @param file the file
+     */
     protected void notifyStopMonitoring(final File file) {
         for (MonitoredFileListener listener : monitoredFileListeners) {
             listener.stoppedMonitoringFile(file);
@@ -212,7 +241,7 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
      *
      * @param key the file
      */
-    void startMonitoringFile(final Object key) {
+    private void startMonitoringFile(final Object key) {
         if (!disposed && key instanceof File) {
             final File file = (File)key;
             final File folder = getDirectory(file);

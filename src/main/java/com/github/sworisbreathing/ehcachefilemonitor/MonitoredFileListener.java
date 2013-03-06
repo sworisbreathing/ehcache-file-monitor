@@ -18,10 +18,19 @@ package com.github.sworisbreathing.ehcachefilemonitor;
 import java.io.File;
 
 /**
- *
+ * Listener interface for file system monitoring events.
  * @author sswor
  */
-public interface MonitoredFileListener {
+interface MonitoredFileListener {
+    /**
+     * Callback invoked when we stop monitoring a file for changes.
+     * @param file the file
+     */
     void startedMonitoringFile(final File file);
+
+    /**
+     * Callback invoked when we stop monitoring a file for changes.
+     * @param file the file
+     */
     void stoppedMonitoringFile(final File file);
 }

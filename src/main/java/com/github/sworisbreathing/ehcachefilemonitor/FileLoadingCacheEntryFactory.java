@@ -42,6 +42,12 @@ public abstract class FileLoadingCacheEntryFactory implements CacheEntryFactory 
         }
     }
 
+    /**
+     * Loads an object from a file.
+     * @param file the file
+     * @return an object loaded from a file
+     * @throws Exception if an object cannot be loaded from the file
+     */
     protected abstract Object loadObjectFromFile(final File file) throws Exception;
 
 }
