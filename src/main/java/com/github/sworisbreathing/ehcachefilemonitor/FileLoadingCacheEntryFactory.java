@@ -25,13 +25,14 @@ import net.sf.ehcache.constructs.blocking.CacheEntryFactory;
 public abstract class FileLoadingCacheEntryFactory implements CacheEntryFactory {
 
     /**
-     * Creates a new cache entry from a file.  When an instance of {@link File}
+     * Obtains a new cache entry.  When an instance of {@link File}
      * is passed to this method, it will return the result of {@link
      * #loadObjectFromFile(File)}.  Otherwise, it will return {@code null}.
      * @param key the key
      * @return the result of {@link #loadObjectFromFile(File)} if the argument
-     * is a file, otherwise {@code null}
-     * @throws Exception if the object cannot be loaded from a file
+     * is a {@link File}, otherwise {@code null}
+     * @throws Exception if the argument was a {@link File} and an exception was
+     * thrown by {@link #loadObjectFromFile(File)}
      */
     @Override
     public Object createEntry(Object key) throws Exception {
@@ -49,5 +50,4 @@ public abstract class FileLoadingCacheEntryFactory implements CacheEntryFactory 
      * @throws Exception if an object cannot be loaded from the file
      */
     protected abstract Object loadObjectFromFile(final File file) throws Exception;
-
 }
