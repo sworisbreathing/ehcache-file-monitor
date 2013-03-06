@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import static ch.qos.logback.classic.Level.*
-import ch.qos.logback.classic.encoder.PatternLayoutEncoder
-import ch.qos.logback.core.ConsoleAppender
+package com.github.sworisbreathing.ehcachefilemonitor;
 
-appender("STDOUT", ConsoleAppender) {
-  encoder(PatternLayoutEncoder) {
-    pattern = "%d [%thread] %p - %C{1} %L - %msg%n"
-  }
+import java.io.File;
+
+/**
+ *
+ * @author sswor
+ */
+public interface MonitoredFileListener {
+    void startedMonitoringFile(final File file);
+    void stoppedMonitoringFile(final File file);
 }
-root(INFO, ["STDOUT"])
-logger("com.github.sworisbreathing.sfmf4j",TRACE)
-logger("com.github.sworisbreathing.ehcachefilemonitor", TRACE)

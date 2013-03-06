@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-Copyright 2012 Steven Swor.
+Copyright 2013 Steven Swor.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ limitations under the License.
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>ehcachefilemonitor</groupId>
+    <groupId>com.github.sworisbreathing.ehcachefilemonitor</groupId>
     <artifactId>ehcache-file-monitor</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
@@ -47,14 +47,40 @@ limitations under the License.
         <developerConnection>scm:git:git@github.com:sworisbreathing/ehcache-file-monitor.git</developerConnection>
     </scm>
 
+    <organization>
+        <name>Steven Swor</name>
+        <url>https://github.com/sworisbreathing/</url>
+    </organization>
+
+    <developers>
+        <developer>
+            <id>sworisbreathing</id>
+            <name>Steven Swor</name>
+            <roles>
+                <role>Project Owner</role>
+            </roles>
+        </developer>
+    </developers>
+
+    <distributionManagement>
+        <site>
+            <id>github-pages-site</id>
+            <name>GHPages Deployment</name>
+            <url>gitsite:git@github.com/sworisbreathing/ehcache-file-monitor.git</url>
+        </site>
+    </distributionManagement>
+
+    <issueManagement>
+        <system>GitHub Issues</system>
+        <url>https://github.com/sworisbreathing/ehcache-file-monitor/issues/</url>
+    </issueManagement>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <groovy.version>2.0.5</groovy.version>
         <powermock.version>1.5</powermock.version>
-        <netbeans.hint.license>apache20</netbeans.hint.license>
-        <github.global.server>github</github.global.server>
-        <sfmf4j.version>1.0-SNAPSHOT</sfmf4j.version>
+        <sfmf4j.version>1.0</sfmf4j.version>
     </properties>
 
     <dependencies>
@@ -69,7 +95,7 @@ limitations under the License.
             <version>2.6.2</version>
         </dependency>
         <dependency>
-            <groupId>sfmf4j</groupId>
+            <groupId>com.github.sworisbreathing.sfmf4j</groupId>
             <artifactId>sfmf4j-api</artifactId>
             <version>${sfmf4j.version}</version>
         </dependency>
@@ -128,7 +154,7 @@ limitations under the License.
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.12.4</version>
                 <configuration>
-                    <argLine>-javaagent:"${settings.localRepository}/org/powermock/powermock-module-javaagent/${powermock.version}/powermock-module-javaagent-${powermock.version}.jar"</argLine>
+                    <argLine>-XX:-UseSplitVerifier -javaagent:"${settings.localRepository}/org/powermock/powermock-module-javaagent/${powermock.version}/powermock-module-javaagent-${powermock.version}.jar"</argLine>
                     <forkMode>pertest</forkMode>
                 </configuration>
             </plugin>
@@ -137,8 +163,8 @@ limitations under the License.
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <version>2.12.4</version>
                 <configuration>
-                    <argLine>-javaagent:"${settings.localRepository}/org/powermock/powermock-module-javaagent/${powermock.version}/powermock-module-javaagent-${powermock.version}.jar"</argLine>
-                   <forkMode>pertest</forkMode>
+                    <argLine>-XX:-UseSplitVerifier -javaagent:"${settings.localRepository}/org/powermock/powermock-module-javaagent/${powermock.version}/powermock-module-javaagent-${powermock.version}.jar"</argLine>
+                    <forkMode>pertest</forkMode>
                 </configuration>
                 <executions>
                     <execution>
@@ -156,6 +182,23 @@ limitations under the License.
                 <version>3.2</version>
             </plugin>
         </plugins>
+        <extensions>
+            <extension>
+                <groupId>org.apache.maven.scm</groupId>
+                <artifactId>maven-scm-provider-gitexe</artifactId>
+                <version>1.3</version>
+            </extension>
+            <extension>
+                <groupId>org.apache.maven.scm</groupId>
+                <artifactId>maven-scm-manager-plexus</artifactId>
+                <version>1.3</version>
+            </extension>
+            <extension>
+                <groupId>com.github.stephenc.wagon</groupId>
+                <artifactId>wagon-gitsite</artifactId>
+                <version>0.4.1</version>
+            </extension>
+        </extensions>
     </build>
     <profiles>
 
@@ -168,24 +211,8 @@ limitations under the License.
                 <jdk>[,1.7)</jdk>
             </activation>
             <dependencies>
-                 <!--
-                    sfmf4j-jpathwatch has a transitive dependency on jpathwatch 0.95,
-                    which is not available in Maven Central.  In order to run the tests
-                    against sfmf4j-jpathwatch, you will need to manually
-
-                    jpathwatch is available at http://jpathwatch.wordpress.com/download/
-                    and is licensed under the GPLv2 with a linking exception
-                    (commonly referred to as the "Classpath" exception).
-
-                    Once you've downloaded jpathwatch and extracted the jar from the
-                    zip file, you can install it into your local repository using
-                    the following command:
-
-mvn install:install-file -Dfile=<path-to-jpathwatch.jar> -DgroupId=jpathwatch
--DartifactId=jpathwatch -Dversion=0.95 -Dpackaging=jar
-                -->
                 <dependency>
-                    <groupId>sfmf4j</groupId>
+                    <groupId>com.github.sworisbreathing.sfmf4j</groupId>
                     <artifactId>sfmf4j-jpathwatch</artifactId>
                     <version>${sfmf4j.version}</version>
                     <scope>test</scope>
@@ -199,7 +226,7 @@ mvn install:install-file -Dfile=<path-to-jpathwatch.jar> -DgroupId=jpathwatch
             </activation>
             <dependencies>
                 <dependency>
-                    <groupId>sfmf4j</groupId>
+                    <groupId>com.github.sworisbreathing.sfmf4j</groupId>
                     <artifactId>sfmf4j-nio2</artifactId>
                     <version>${sfmf4j.version}</version>
                     <scope>test</scope>
@@ -244,23 +271,26 @@ mvn install:install-file -Dfile=<path-to-jpathwatch.jar> -DgroupId=jpathwatch
             </build>
         </profile>
         <profile>
-            <id>github-site-publish</id>
+            <id>release-sign-artifacts</id>
+            <activation>
+                <property>
+                    <name>performRelease</name>
+                    <value>true</value>
+                </property>
+            </activation>
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>com.github.github</groupId>
-                        <artifactId>site-maven-plugin</artifactId>
-                        <version>0.7</version>
-                        <configuration>
-                            <message>Creating site for ${project.version}</message>
-                            <merge>true</merge>
-                        </configuration>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>1.4</version>
                         <executions>
                             <execution>
+                                <id>sign-artifacts</id>
+                                <phase>package</phase>
                                 <goals>
-                                    <goal>site</goal>
+                                    <goal>sign</goal>
                                 </goals>
-                                <phase>site</phase>
                             </execution>
                         </executions>
                     </plugin>
@@ -272,8 +302,84 @@ mvn install:install-file -Dfile=<path-to-jpathwatch.jar> -DgroupId=jpathwatch
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-project-info-reports-plugin</artifactId>
+                <version>2.6</version>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>summary</report>
+                            <report>dependency-info</report>
+                            <report>dependencies</report>
+                            <report>issue-tracking</report>
+                            <report>scm</report>
+                            <report>project-team</report>
+                            <report>distribution-management</report>
+                            <report>plugins</report>
+                            <report>license</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <version>2.9</version>
+            </plugin>
+            <!--
+                Generates source cross-reference reports.  These are similar to
+                Javadoc, except the HTML includes hyperlinks on the classes and
+                method headers to view the source code.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jxr-plugin</artifactId>
+                <version>2.3</version>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>jxr</report>
+                            <report>test-jxr</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
+            </plugin>
+
+            <!--
+                PMD is a code quality tool.  The PMD report is a general code
+                quality report, while the CPD report identifies "copy-and-paste"
+                code blocks.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-pmd-plugin</artifactId>
+                <version>2.7.1</version>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>pmd</report>
+                            <report>cpd</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
+                <configuration>
+                    <targetJdk>${jdk.version}</targetJdk>
+                </configuration>
+            </plugin>
+
+            <!--
+                Findbugs is a code quality tool.
+            -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>findbugs-maven-plugin</artifactId>
+                <version>2.5.2</version>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>findbugs</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
             </plugin>
             <!--
                 A fork of cobertura-maven-plugin which includes integration
