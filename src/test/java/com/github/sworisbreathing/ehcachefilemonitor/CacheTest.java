@@ -45,7 +45,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Integration tests.
  *
- * @author sswor
+ * @author Steven Swor
  */
 public class CacheTest {
 

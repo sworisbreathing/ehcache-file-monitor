@@ -39,7 +39,7 @@ import org.slf4j.LoggerFactory;
  * The file is only monitored as long as it is in the cache. This implementation
  * is bound to a single cache instance.
  *
- * @author sswor
+ * @author Steven Swor
  */
 public class FileMonitoringCacheEventListener implements CacheEventListener {
 

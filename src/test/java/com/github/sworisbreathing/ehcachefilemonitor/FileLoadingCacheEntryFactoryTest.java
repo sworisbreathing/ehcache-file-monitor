@@ -24,7 +24,7 @@ import org.junit.rules.TemporaryFolder;
 /**
  * Unit tests for {@link FileLoadingCacheEntryFactory}.
  *
- * @author sswor
+ * @author Steven Swor
  */
 public class FileLoadingCacheEntryFactoryTest {
 

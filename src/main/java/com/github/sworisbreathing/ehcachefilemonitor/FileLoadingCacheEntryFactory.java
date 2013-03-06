@@ -20,7 +20,7 @@ import net.sf.ehcache.constructs.blocking.CacheEntryFactory;
 
 /**
  * A cache entry factory which loads object instances from a file.
- * @author sswor
+ * @author Steven Swor
  */
 public abstract class FileLoadingCacheEntryFactory implements CacheEntryFactory {
 
