@@ -47,9 +47,9 @@ import org.slf4j.LoggerFactory;
  *
  * @author sswor
  */
-public class CacheIT {
+public class CacheTest {
 
-    private static final Logger testLogger = LoggerFactory.getLogger(CacheIT.class);
+    private static final Logger testLogger = LoggerFactory.getLogger(CacheTest.class);
     private static FileMonitorServiceFactory factory = null;
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
@@ -78,10 +78,10 @@ public class CacheIT {
     public void setUp() throws Exception {
         callbackFiles = new LinkedBlockingQueue<File>();
         Configuration configuration = new Configuration();
-        CacheConfiguration cacheConfiguration = new CacheConfiguration(CacheIT.class.getName(), 1000).eternal(false).persistence(new PersistenceConfiguration().strategy(PersistenceConfiguration.Strategy.NONE));
+        CacheConfiguration cacheConfiguration = new CacheConfiguration(CacheTest.class.getName(), 1000).eternal(false).persistence(new PersistenceConfiguration().strategy(PersistenceConfiguration.Strategy.NONE));
         configuration.addCache(cacheConfiguration);
         cacheManager = CacheManager.create(configuration);
-        cache = cacheManager.getEhcache(CacheIT.class.getName());
+        cache = cacheManager.getEhcache(CacheTest.class.getName());
         selfPopulatingCache = new SelfPopulatingCache(cache, new FileLoadingCacheEntryFactory() {
             @Override
             protected Object loadObjectFromFile(File file) throws Exception {

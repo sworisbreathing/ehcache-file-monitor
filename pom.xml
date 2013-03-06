@@ -177,6 +177,11 @@ limitations under the License.
                 </executions>
             </plugin>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>cobertura-maven-plugin</artifactId>
+                <version>2.5.2</version>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-site-plugin</artifactId>
                 <version>3.2</version>
@@ -235,42 +240,6 @@ limitations under the License.
         </profile>
 
         <profile>
-            <id>it-coverage</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>cobertura-it-maven-plugin</artifactId>
-                        <version>2.5</version>
-                        <executions>
-                            <execution>
-                                <id>cobertura-clean</id>
-                                <phase>clean</phase>
-                                <goals>
-                                    <goal>clean</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>cobertura-instrument</id>
-                                <phase>process-classes</phase>
-                                <goals>
-                                    <goal>instrument</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>cobertura-check-and-report</id>
-                                <phase>verify</phase>
-                                <goals>
-                                    <goal>report-only</goal>
-                                    <goal>check-only</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
             <id>release-sign-artifacts</id>
             <activation>
                 <property>
@@ -298,6 +267,7 @@ limitations under the License.
             </build>
         </profile>
     </profiles>
+
     <reporting>
         <plugins>
             <plugin>
@@ -320,11 +290,13 @@ limitations under the License.
                     </reportSet>
                 </reportSets>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <version>2.9</version>
             </plugin>
+
             <!--
                 Generates source cross-reference reports.  These are similar to
                 Javadoc, except the HTML includes hyperlinks on the classes and
@@ -381,18 +353,15 @@ limitations under the License.
                     </reportSet>
                 </reportSets>
             </plugin>
-            <!--
-                A fork of cobertura-maven-plugin which includes integration
-                tests run by maven-failsafe-plugin in its coverage reports.
-            -->
+            
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
-                <artifactId>cobertura-it-maven-plugin</artifactId>
-                <version>2.5</version>
+                <artifactId>cobertura-maven-plugin</artifactId>
+                <version>2.5.2</version>
                 <reportSets>
                     <reportSet>
                         <reports>
-                            <report>report-only</report>
+                            <report>cobertura</report>
                         </reports>
                     </reportSet>
                 </reportSets>
