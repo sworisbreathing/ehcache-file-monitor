@@ -65,7 +65,7 @@ Performance Tuning
     A short polling interval introduces unnecessary I/O, especially when the
     files don't change very often.  Too long a polling interval, and your users
     might be using stale logic, or they might have to wait a while after a
-    script is updated before using a particular feature.
+    resource is updated before using a particular feature.
 
     * Choose a cache expiration timeout (<<<timeToIdleSeconds>>>) based on
     user demand for cached logic.
@@ -74,7 +74,7 @@ Performance Tuning
     frequently-accessed application functions, since the application must
     constantly wait for the logic to be loaded from the file system.  A long
     timeout can increase the amount of unnecessary I/O due to file system
-    polling for scripts which are no longer being used by the application.
+    polling for resources which are no longer being used by the application.
 
     * Choose a cache expiration polling interval based on what you consider to
     be an acceptable amount of unnecessary file system polling.
