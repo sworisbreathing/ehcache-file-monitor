@@ -48,7 +48,7 @@ Performance Tuning
 * Tuning I/O
 
     Nearly every file system monitoring solution for Java (including NIO2) uses
-    file system polling under certain circumstances (others do it all the time).
+    file system polling under certain circumstances (some poll all the time).
     Periodically polling the file system introduces some amount of disk I/O
     at regular intervals.  Our solution attempts to minimize the impact by only
     monitoring directories containing files for which we have valid cache
