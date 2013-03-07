@@ -29,20 +29,36 @@ import org.junit.rules.TemporaryFolder;
  */
 public class FileMonitoringCacheEventListenerTest {
 
+    /**
+     * Tests {@link FileMonitoringCacheEventListener#clone()}.
+     * @throws CloneNotSupportedException if the test passes
+     */
     @Test(expected = CloneNotSupportedException.class)
     public void testClone() throws CloneNotSupportedException {
         new FileMonitoringCacheEventListener(null, null).clone();
     }
 
+    /**
+     * A temporary folder for testing.
+     */
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
 
+    /**
+     * Tests {@link FileMonitoringCacheEventListener#getDirectory(File)} with a
+     * file.
+     * @throws IOException if the file cannot be created
+     */
     @Test
     public void testGetDirectoryFile() throws IOException {
         File newFile = tempFolder.newFile();
         assertEquals(tempFolder.getRoot(), FileMonitoringCacheEventListener.getDirectory(newFile));
     }
 
+    /**
+     * Tests {@link FileMonitoringCacheEventListener#getDirectory(File)} with a
+     * directory.
+     */
     @Test
     public void testGetDirectoryFolder() {
         assertEquals(tempFolder.getRoot(), FileMonitoringCacheEventListener.getDirectory(tempFolder.getRoot()));
