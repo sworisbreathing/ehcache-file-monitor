@@ -56,7 +56,7 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
     /**
      * The file monitor service.
      */
-    private final FileMonitorService fileAlterationMonitor;
+    private final FileMonitorService fileMonitorService;
 
     /**
      * Disposal flag, used to prevent new file observers from being added when
@@ -87,11 +87,11 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
      * Creates a new FileMonitoringCacheEventListener.
      *
      * @param cache the cache to manage
-     * @param fileAlterationMonitor service for monitoring file changes
+     * @param fileMonitorService service for monitoring file changes
      */
-    public FileMonitoringCacheEventListener(final Ehcache cache, final FileMonitorService fileAlterationMonitor) {
+    public FileMonitoringCacheEventListener(final Ehcache cache, final FileMonitorService fileMonitorService) {
         this.cache = cache;
-        this.fileAlterationMonitor = fileAlterationMonitor;
+        this.fileMonitorService = fileMonitorService;
         this.disposed = false;
         monitoredFileListeners = new CopyOnWriteArrayList<MonitoredFileListener>();
         monitoredFilesByFolder = new ConcurrentHashMap<File, Collection<File>>();
@@ -276,7 +276,7 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
                             }
                         };
                         directoryListenersByFolder.put(folder, listener);
-                        fileAlterationMonitor.registerDirectoryListener(folder, listener);
+                        fileMonitorService.registerDirectoryListener(folder, listener);
                     }
                 }
             }
@@ -307,7 +307,7 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
                         monitoredFilesByFolder.remove(parentFolder);
                         DirectoryListener listener = directoryListenersByFolder.remove(parentFolder);
                         if (listener != null) {
-                            fileAlterationMonitor.unregisterDirectoryListener(parentFolder, listener);
+                            fileMonitorService.unregisterDirectoryListener(parentFolder, listener);
                         }
                     }
                 }

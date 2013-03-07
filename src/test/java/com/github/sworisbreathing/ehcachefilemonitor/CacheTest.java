@@ -56,7 +56,7 @@ public class CacheTest {
     private CacheManager cacheManager;
     private Ehcache cache = null;
     private SelfPopulatingCache selfPopulatingCache = null;
-    private FileMonitorService fileAlterationMonitor = null;
+    private FileMonitorService fileMonitorService = null;
     private FileMonitoringCacheEventListener instance = null;
     private BlockingQueue<File> callbackFiles = null;
 
@@ -89,9 +89,9 @@ public class CacheTest {
             }
         });
         cacheManager.replaceCacheWithDecoratedCache(cache, selfPopulatingCache);
-        fileAlterationMonitor = factory.createFileMonitorService();
-        fileAlterationMonitor.initialize();
-        instance = new FileMonitoringCacheEventListener(selfPopulatingCache, fileAlterationMonitor);
+        fileMonitorService = factory.createFileMonitorService();
+        fileMonitorService.initialize();
+        instance = new FileMonitoringCacheEventListener(selfPopulatingCache, fileMonitorService);
         instance.addMonitoredFileListener(new MonitoredFileListener() {
             @Override
             public void startedMonitoringFile(File file) {
@@ -111,8 +111,8 @@ public class CacheTest {
         selfPopulatingCache.getCacheEventNotificationService().unregisterListener(instance);
         instance.dispose();
         instance = null;
-        fileAlterationMonitor.shutdown();
-        fileAlterationMonitor = null;
+        fileMonitorService.shutdown();
+        fileMonitorService = null;
         selfPopulatingCache = null;
         cache = null;
         if (cacheManager != null) {
@@ -126,7 +126,7 @@ public class CacheTest {
         testLogger.info("Testing lazy-loading file monitor through ehcache.");
         assertEquals(0, selfPopulatingCache.getKeys().size());
         final File folder = tempFolder.getRoot();
-        assertFalse(fileAlterationMonitor.isMonitoringDirectory(folder));
+        assertFalse(fileMonitorService.isMonitoringDirectory(folder));
         File created = verifyFileCreateBehaviour(folder, 1);
         verifyFileModifyBehaviour(created, folder, 0);
         verifyFileDeleteBehaviour(created, folder, 0);
@@ -137,7 +137,7 @@ public class CacheTest {
         testLogger.info("Testing lazy-loading file monitor through ehcache with multiple files.");
         assertEquals(0, selfPopulatingCache.getKeys().size());
         final File folder = tempFolder.getRoot();
-        assertFalse(fileAlterationMonitor.isMonitoringDirectory(folder));
+        assertFalse(fileMonitorService.isMonitoringDirectory(folder));
         List<File> files = new LinkedList<File>();
         File last = null;
         for (int i=0;i<10;i++) {
@@ -163,7 +163,7 @@ public class CacheTest {
         File added = callbackFiles.take();
         assertEquals(created.getAbsolutePath(), added.getAbsolutePath());
         assertEquals(count, selfPopulatingCache.getKeys().size());
-        assertTrue(fileAlterationMonitor.isMonitoringDirectory(folder));
+        assertTrue(fileMonitorService.isMonitoringDirectory(folder));
         return created;
     }
 
@@ -217,13 +217,13 @@ public class CacheTest {
             File removed = callbackFiles.take();
             assertEquals(file.getAbsolutePath(), removed.getAbsolutePath());
             assertEquals(filesStillBeingMonitored, selfPopulatingCache.getKeys().size());
-            assertEquals(filesStillBeingMonitored > 0, fileAlterationMonitor.isMonitoringDirectory(folder));
+            assertEquals(filesStillBeingMonitored > 0, fileMonitorService.isMonitoringDirectory(folder));
             testLogger.info("Automatically removed on modification.  Ensuring it is cached again prior to deleting.");
             selfPopulatingCache.get(file);
             File added = callbackFiles.take();
             assertEquals(file.getAbsolutePath(), added.getAbsolutePath());
             assertEquals(1+filesStillBeingMonitored, selfPopulatingCache.getKeys().size());
-            assertTrue(fileAlterationMonitor.isMonitoringDirectory(folder));
+            assertTrue(fileMonitorService.isMonitoringDirectory(folder));
         } else {
             testLogger.info("Cannot write the file.  Will not test automatic removal.");
         }
@@ -236,6 +236,6 @@ public class CacheTest {
         File removed = callbackFiles.take();
         assertEquals(file.getAbsolutePath(), removed.getAbsolutePath());
         assertEquals(filesStillBeingMonitored, selfPopulatingCache.getKeys().size());
-        assertEquals(filesStillBeingMonitored>0, fileAlterationMonitor.isMonitoringDirectory(folder));
+        assertEquals(filesStillBeingMonitored>0, fileMonitorService.isMonitoringDirectory(folder));
     }
 }
