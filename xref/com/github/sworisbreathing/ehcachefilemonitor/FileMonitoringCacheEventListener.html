@@ -237,7 +237,7 @@
 <a class="jxr_linenumber" name="227" href="#227">227</a>     <strong class="jxr_keyword">private</strong> <strong class="jxr_keyword">synchronized</strong> <strong class="jxr_keyword">void</strong> stopMonitoringAll() {
 <a class="jxr_linenumber" name="228" href="#228">228</a>         Collection&lt;File&gt; folders = <strong class="jxr_keyword">new</strong> LinkedList&lt;File&gt;(monitoredFilesByFolder.keySet());
 <a class="jxr_linenumber" name="229" href="#229">229</a>         <strong class="jxr_keyword">for</strong> (File folder : folders) {
-<a class="jxr_linenumber" name="230" href="#230">230</a>             Collection&lt;File&gt; files = <strong class="jxr_keyword">new</strong> LinkedList&lt;File&gt;(monitoredFilesByFolder.remove(folder));
+<a class="jxr_linenumber" name="230" href="#230">230</a>             Collection&lt;File&gt; files = <strong class="jxr_keyword">new</strong> LinkedList&lt;File&gt;(monitoredFilesByFolder.get(folder));
 <a class="jxr_linenumber" name="231" href="#231">231</a>             <strong class="jxr_keyword">if</strong> (files != <strong class="jxr_keyword">null</strong>) {
 <a class="jxr_linenumber" name="232" href="#232">232</a>                 <strong class="jxr_keyword">for</strong> (File file : files) {
 <a class="jxr_linenumber" name="233" href="#233">233</a>                     stopMonitoringFile(file);
