@@ -19,6 +19,9 @@ import com.github.sworisbreathing.sfmf4j.api.FileMonitorService;
 import com.github.sworisbreathing.sfmf4j.api.FileMonitorServiceFactory;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -146,6 +149,7 @@ public class CacheTest {
          * Set up a self-populating cache for testing.
          */
         Configuration configuration = new Configuration();
+        configuration.setUpdateCheck(false);
         CacheConfiguration cacheConfiguration = new CacheConfiguration(CacheTest.class.getName(), 1000).eternal(false).persistence(new PersistenceConfiguration().strategy(PersistenceConfiguration.Strategy.NONE));
         configuration.addCache(cacheConfiguration);
         cacheManager = CacheManager.create(configuration);
@@ -248,6 +252,37 @@ public class CacheTest {
         for (File file : files) {
             verifyFileDeleteBehaviour(file, --count);
         }
+    }
+
+    /**
+     * Ensures that we stop monitoring files when {@link Ehcache#removeAll()} is
+     * called.
+     */
+    @Test(timeout = 10000)
+    public void testRemoveAll() throws IOException, InterruptedException {
+        /*
+         * Let's make some files, load them into the cache, and start monitoring
+         * them.
+         */
+        final int NUM_FILES = 10;
+        Collection<File> files = new HashSet<File>(NUM_FILES);
+        for (int i=0;i<NUM_FILES;i++) {
+            File file = tempFolder.newFile();
+            selfPopulatingCache.get(file);
+            files.add(callbackFiles.take());
+        }
+        assertTrue(fileMonitorService.isMonitoringDirectory(tempFolder.getRoot()));
+
+        /*
+         * Empty the cache and verify that we stopped monitoring all the files.
+         */
+        selfPopulatingCache.removeAll();
+        Collection<File> notMonitoringFiles = new HashSet<File>(NUM_FILES);
+        for (int i=0; i<NUM_FILES; i++) {
+            notMonitoringFiles.add(callbackFiles.take());
+        }
+        assertEquals(files, notMonitoringFiles);
+        assertFalse(fileMonitorService.isMonitoringDirectory(tempFolder.getRoot()));
     }
 
     /**

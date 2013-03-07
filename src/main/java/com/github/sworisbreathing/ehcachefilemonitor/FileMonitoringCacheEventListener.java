@@ -227,7 +227,7 @@ public class FileMonitoringCacheEventListener implements CacheEventListener {
     private synchronized void stopMonitoringAll() {
         Collection<File> folders = new LinkedList<File>(monitoredFilesByFolder.keySet());
         for (File folder : folders) {
-            Collection<File> files = new LinkedList<File>(monitoredFilesByFolder.remove(folder));
+            Collection<File> files = new LinkedList<File>(monitoredFilesByFolder.get(folder));
             if (files != null) {
                 for (File file : files) {
                     stopMonitoringFile(file);
